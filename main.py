@@ -14,16 +14,14 @@ KNOWN_FACES_DIR = "known_faces"
 DB_FILE = "encodings.pickle"
 known_people_db = []
 
-# --- BACKEND LOGIC ---
+# --- BACKEND LOGIC (Unchanged) ---
 def load_db():
     global known_people_db
     if not os.path.exists(KNOWN_FACES_DIR):
         os.makedirs(KNOWN_FACES_DIR)
-    
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "rb") as f:
             known_people_db = pickle.load(f)
-            print(f"Loaded {len(known_people_db)} people.")
 
 def save_db():
     with open(DB_FILE, "wb") as f:
@@ -36,85 +34,161 @@ def get_person_folder(name):
 class FaceApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-
-        self.title("FaceReco AI")
+        self.title("FaceReco")
         self.geometry("1100x700")
-
         load_db()
 
-        # Grid Configuration
+        # State
+        self.current_page = "home" 
+        self.current_person_view = None
+        self.current_cols = 1
+
+        # Layout Config
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
         
-        # STATE FOR DYNAMIC GRID
-        self.current_cols = 1
+        # 1. UI SETUP
+        self._setup_sidebar()
+        self._setup_main_area()
+        
+        self.show_home()
 
-        # 1. LEFT SIDEBAR
+    def _setup_sidebar(self):
         self.sidebar = ctk.CTkFrame(self, width=280, corner_radius=0)
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         
-        self.logo_label = ctk.CTkLabel(self.sidebar, text="FaceReco", font=ctk.CTkFont(size=24, weight="bold"))
-        self.logo_label.grid(row=0, column=0, padx=20, pady=(30, 20))
-
-        self.upload_btn = ctk.CTkButton(self.sidebar, text="+ Upload Image", height=40,
-                                      font=ctk.CTkFont(size=14, weight="bold"),
-                                      fg_color="#1F6AA5", hover_color="#144870",
-                                      command=self.upload_image)
-        self.upload_btn.grid(row=1, column=0, padx=20, pady=10, sticky="ew")
+        ctk.CTkLabel(self.sidebar, text="FaceReco", font=("Arial", 24, "bold")).grid(row=0, column=0, padx=20, pady=(30, 20))
+        
+        ctk.CTkButton(self.sidebar, text="+ Upload Image", height=40, font=("Arial", 14, "bold"),
+                      fg_color="#1F6AA5", hover_color="#144870",
+                      command=self.upload_image).grid(row=1, column=0, padx=20, pady=10, sticky="ew")
 
         self.status_label = ctk.CTkLabel(self.sidebar, text="System Ready", text_color="gray")
         self.status_label.grid(row=2, column=0, padx=20, pady=10)
 
-        self.sidebar.grid_rowconfigure(3, weight=1)
-        self.credit_label = ctk.CTkLabel(self.sidebar, text="v1.4 Stable Scroll", text_color="#555")
-        self.credit_label.grid(row=4, column=0, pady=20)
+        self.sidebar.grid_rowconfigure(3, weight=1) # Spacer
+        ctk.CTkLabel(self.sidebar, text="v1.8 Optimized", text_color="#555").grid(row=4, column=0, pady=20)
 
-        # 2. MAIN CONTENT AREA
+    def _setup_main_area(self):
         self.main_area = ctk.CTkFrame(self, fg_color="transparent")
-        self.main_area.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
+        self.main_area.grid(row=0, column=1, sticky="nsew", padx=(10, 0), pady=(10, 0))
         
-        self.header_lbl = ctk.CTkLabel(self.main_area, text="People Gallery", 
-                                     font=ctk.CTkFont(family="Arial", size=28, weight="bold"),
-                                     anchor="w")
-        self.header_lbl.pack(fill="x", pady=(10, 15), padx=10)
+        # Header
+        self.header_frame = ctk.CTkFrame(self.main_area, fg_color="transparent")
+        self.header_frame.pack(fill="x", pady=(10, 15), padx=(10, 20))
 
-        # Scrollable Gallery
-        self.gallery_frame = ctk.CTkScrollableFrame(self.main_area, fg_color="transparent")
+        self.header_lbl = ctk.CTkLabel(self.header_frame, text="People Gallery", font=("Arial", 28, "bold"), anchor="w")
+        self.header_lbl.pack(side="left", fill="x", expand=True)
+
+        self.back_btn = ctk.CTkButton(self.header_frame, text="← Back", width=80, fg_color="transparent", 
+                                      border_width=1, text_color="#DDD", hover_color="#333",
+                                      command=self.show_home)
+        
+        # Gallery
+        self.gallery_frame = ctk.CTkScrollableFrame(self.main_area, fg_color="transparent", corner_radius=0)
         self.gallery_frame.pack(fill="both", expand=True)
-
-        # --- FIX: Bind Resize to PARENT (main_area), NOT the scrollable frame ---
         self.main_area.bind("<Configure>", self.check_resize)
+
+    # --- HELPERS ---
+    def _load_image(self, path, size=(150, 150)):
+        """Loads and resizes an image safely."""
+        try:
+            pil_img = Image.open(path)
+            pil_img = pil_img.resize(size, Image.Resampling.LANCZOS)
+            return ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=size)
+        except:
+            return None
+
+    def _create_card(self, row, col, img_path, name=None, is_person_card=False):
+        """Unified builder for both Person cards and Image cards."""
+        card = ctk.CTkFrame(self.gallery_frame, width=170, height=200 if is_person_card else 170, 
+                            corner_radius=0, fg_color="#2B2B2B")
+        card.grid(row=row, column=col, padx=8, pady=8)
+        card.grid_propagate(False)
+
+        # Image Handling
+        display_image = self._load_image(img_path) if img_path else None
         
-        # Initial Render
+        if display_image:
+            lbl = ctk.CTkLabel(card, image=display_image, text="", cursor="hand2" if is_person_card else "")
+            lbl.pack(pady=(10, 0) if is_person_card else 0, expand=True)
+            if is_person_card:
+                lbl.bind("<Button-1>", lambda e: self.show_person_detail(name))
+        else:
+            ctk.CTkLabel(card, text="No Image" if is_person_card else "Error").pack(pady=(10,0) if is_person_card else 0, expand=True)
+
+        # Logic specific to the "Person" card (Editable Name)
+        if is_person_card:
+            name_var = ctk.StringVar(value=name)
+            entry = ctk.CTkEntry(card, textvariable=name_var, justify="right", font=("Arial", 11),
+                                 fg_color="transparent", border_width=0, text_color="#AAAAAA", width=140)
+            entry.pack(side="bottom", anchor="e", padx=10, pady=(0, 10))
+            entry.bind("<Return>", lambda e: self.rename_person(name, name_var.get()))
+
+    # --- NAVIGATION ---
+    def show_home(self):
+        self.current_page = "home"
+        self.current_person_view = None
+        self.back_btn.pack_forget()
+        self.header_lbl.configure(text="People Gallery")
         self.reload_gallery()
 
+    def show_person_detail(self, name):
+        self.current_page = "detail"
+        self.current_person_view = name
+        self.back_btn.pack(side="right", padx=0)
+        self.header_lbl.configure(text=f"{name}'s Photos")
+        self.reload_gallery()
+
+    # --- CORE LOGIC ---
     def check_resize(self, event):
-        """
-        Dynamically calculates columns based on width.
-        """
-        # We check the width of main_area, but we must account for the sidebar
-        # taking up space if the event returns full window width. 
-        # However, since we bound to main_area, event.width IS the gallery width.
-        
-        available_width = event.width - 60 # Subtract padding/scrollbar safety buffer
-        
-        # Card width (170) + X-Padding (16) = 186px
-        item_total_width = 186
-        
-        new_cols = available_width // item_total_width
-        
-        if new_cols < 1: new_cols = 1
-        
+        new_cols = max(1, (event.width - 40) // 186)
         if new_cols != self.current_cols:
             self.current_cols = int(new_cols)
             self.reload_gallery()
 
+    def reload_gallery(self):
+        for widget in self.gallery_frame.winfo_children():
+            widget.destroy()
+
+        if self.current_page == "home":
+            self.render_grid(known_people_db, is_people=True)
+        elif self.current_page == "detail":
+            folder = get_person_folder(self.current_person_view)
+            if os.path.exists(folder):
+                images = [os.path.join(folder, f) for f in os.listdir(folder) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
+                self.render_grid(images, is_people=False)
+            else:
+                ctk.CTkLabel(self.gallery_frame, text="Folder not found!").pack()
+
+    def render_grid(self, items, is_people):
+        """Loop through items (people dicts or image paths) and place them."""
+        if not items:
+            ctk.CTkLabel(self.gallery_frame, text="No items found.").pack()
+            return
+
+        row, col = 0, 0
+        for item in items:
+            if is_people:
+                name = item['name']
+                folder = get_person_folder(name)
+                files = os.listdir(folder)
+                img_path = os.path.join(folder, files[0]) if files else None
+                self._create_card(row, col, img_path, name=name, is_person_card=True)
+            else:
+                self._create_card(row, col, item, is_person_card=False)
+
+            col += 1
+            if col >= self.current_cols:
+                col = 0
+                row += 1
+
+    # --- DATA OPERATIONS ---
     def upload_image(self):
         file_path = filedialog.askopenfilename(filetypes=[("Images", "*.jpg *.jpeg *.png")])
         if file_path:
             self.status_label.configure(text="Processing...", text_color="#FFA500") 
             self.update() 
-            
             try:
                 self.process_engine(file_path)
                 self.reload_gallery()
@@ -127,7 +201,6 @@ class FaceApp(ctk.CTk):
     def process_engine(self, image_path):
         image_rgb = face_recognition.load_image_file(image_path)
         image_bgr = cv2.imread(image_path)
-        
         face_locations = face_recognition.face_locations(image_rgb)
         face_encodings = face_recognition.face_encodings(image_rgb, face_locations)
 
@@ -138,7 +211,6 @@ class FaceApp(ctk.CTk):
         for face_encoding, face_location in zip(face_encodings, face_locations):
             name = "Unknown"
             matches = []
-
             if len(known_people_db) > 0:
                 known_embeddings = [p['encoding'] for p in known_people_db]
                 matches = face_recognition.compare_faces(known_embeddings, face_encoding, tolerance=0.6)
@@ -156,69 +228,8 @@ class FaceApp(ctk.CTk):
             save_path = os.path.join(get_person_folder(name), os.path.basename(image_path))
             cv2.imwrite(save_path, image_bgr)
 
-    def reload_gallery(self):
-        for widget in self.gallery_frame.winfo_children():
-            widget.destroy()
-
-        row = 0
-        col = 0
-        
-        for person in known_people_db:
-            self.create_person_card(person['name'], row, col)
-            
-            col += 1
-            if col >= self.current_cols:
-                col = 0
-                row += 1
-
-    def create_person_card(self, name, r, c):
-        # 1. Card Container
-        card_width = 170
-        card_height = 200
-        
-        card = ctk.CTkFrame(self.gallery_frame, width=card_width, height=card_height, 
-                            corner_radius=0, fg_color="#2B2B2B")
-        card.grid(row=r, column=c, padx=8, pady=8)
-        card.grid_propagate(False)
-
-        # 2. Thumbnail
-        folder = get_person_folder(name)
-        images = os.listdir(folder)
-        display_image = None
-        
-        if images:
-            img_path = os.path.join(folder, images[0])
-            try:
-                pil_img = Image.open(img_path)
-                pil_img = pil_img.resize((150, 150), Image.Resampling.LANCZOS)
-                display_image = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(150, 150))
-            except:
-                pass
-
-        if display_image:
-            img_label = ctk.CTkLabel(card, image=display_image, text="")
-            img_label.pack(pady=(10, 0))
-        else:
-            ctk.CTkLabel(card, text="No Image", height=140).pack(pady=(10,0))
-
-        # 3. Rename Field
-        name_var = ctk.StringVar(value=name)
-        entry = ctk.CTkEntry(
-            card, 
-            textvariable=name_var, 
-            justify="right",           
-            font=("Arial", 11),
-            fg_color="transparent",    
-            border_width=0,            
-            text_color="#AAAAAA",      
-            width=140
-        )
-        entry.pack(side="bottom", anchor="e", padx=10, pady=(0, 10))
-        entry.bind("<Return>", lambda event: self.rename_person(name, name_var.get()))
-
     def rename_person(self, old_name, new_name):
         if old_name == new_name: return
-
         try:
             old_path = get_person_folder(old_name)
             new_path = get_person_folder(new_name)
@@ -231,9 +242,7 @@ class FaceApp(ctk.CTk):
             
             save_db()
             self.reload_gallery()
-            print(f"Renamed {old_name} -> {new_name}")
-            self.focus() 
-            
+            self.focus()
         except Exception as e:
             messagebox.showerror("Error", f"Could not rename: {e}")
 
