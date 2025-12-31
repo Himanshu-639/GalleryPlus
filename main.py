@@ -67,7 +67,7 @@ class FaceApp(ctk.CTk):
         self.status_label.grid(row=2, column=0, padx=20, pady=10)
 
         self.sidebar.grid_rowconfigure(3, weight=1) # Spacer
-        ctk.CTkLabel(self.sidebar, text="v1.8 Optimized", text_color="#555").grid(row=4, column=0, pady=20)
+        ctk.CTkLabel(self.sidebar, text="v1.0 FaceReco", text_color="#555").grid(row=4, column=0, pady=20)
 
     def _setup_main_area(self):
         self.main_area = ctk.CTkFrame(self, fg_color="transparent")
