@@ -1,4 +1,4 @@
-# 📸 Smart Face Sorter (Incremental Clustering)
+# 📸 Gallery+ (Smart Face Sorter)
 
 A Python-based application that automatically organizes a collection of photos by grouping them based on faces. Unlike traditional clustering that requires all data at once, this app uses **Incremental Clustering** to learn and group faces one by one as they are uploaded.
 
@@ -6,9 +6,9 @@ A Python-based application that automatically organizes a collection of photos b
 
 * **Incremental Learning:** You don't need a dataset to start. The app starts empty and learns new faces as you add images.
 * **Automatic Grouping:** If a face matches an existing person, it adds it to their group. If it's a new face, it automatically creates a new "Person X" group.
-* **Persistent Memory:** Uses `pickle` to save face encodings, so the app remembers who is who even after you restart the computer.
-* **Folder Organization:** Automatically creates folders for each person and sorts images into them.
-* **Privacy-First:** All processing happens locally on your machine.
+* **Persistent Memory:** Uses a local SQLite database to save face encodings securely so the app remembers who is who forever.
+* **Modern Interface:** Packed with a responsive dark-mode GUI built on CustomTkinter.
+* **Privacy-First:** All processing happens locally on your machine. No internet required.
 
 ## 🛠️ Tech Stack
 

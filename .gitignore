@@ -1,3 +1,21 @@
-/known_faces
+# Python / Environment
+__pycache__/
+*.pyc
 /venv
+/env
+.env
+
+# PyInstaller / Build Artifacts
+/build/
+/dist/
+*.spec
+*.exe
+
+# App Data / Personal Images
+plan.md
+/known_faces/
+/new_images/
 encodings.pickle
+faces.db
+*.jpg
+*.png
